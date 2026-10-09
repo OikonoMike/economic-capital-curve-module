@@ -58,6 +58,6 @@
 
 ## Как запустить
 ```bash
-pip install pandas numpy scipy openpyxl
+pip install pandas numpy openpyxl
 python src/interpolate_curve.py
 ```
