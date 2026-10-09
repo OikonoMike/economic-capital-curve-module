@@ -1,6 +1,6 @@
 zcyc
 
-tradedate;tradetime;period_0.25;period_0.5;period_0.75;period_1.0;period_2.0;period_3.0;period_5.0;period_7.0;period_10.0;period_15.0;period_20.0
-31.07.2026;18:49:59;13,59;13,35;13,42;13,63;14,58;15,06;15,42;15,57;15,69;15,84;15,95
+tradedate;tradetime;period_0.25;period_0.5;period_0.75;period_1.0;period_2.0;period_3.0;period_5.0;period_7.0;period_10.0;period_15.0;period_20.0;period_30.0
+31.07.2026;18:49:59;13,59;13,35;13,42;13,63;14,58;15,06;15,42;15,57;15,69;15,84;15,95;16,1
 
 

@@ -1,35 +1,23 @@
 import pandas as pd
 import numpy as np
-from scipy.interpolate import interp1d
 
-# Теноры MOEX (из скачанного файла)
-moex_tenors = [0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0]
-
-# Ставки MOEX на 31.07.2026 (из файла)
-moex_rates = [13.59, 13.35, 13.42, 13.63, 14.58, 15.06, 15.42, 15.57, 15.69, 15.84, 15.95]
+# Сырые данные MOEX (файл zcyc: первая строка 'zcyc', вторая пустая, третья - заголовок)
+raw = pd.read_csv('data/gcurve_2026-07-31_moex.csv', sep=';', skiprows=2, decimal=',')
+cols = [c for c in raw.columns if c.startswith('period_')]
+moex_tenors = [float(c.split('_')[1]) for c in cols]
+moex_rates = raw.loc[0, cols].astype(float).tolist()
 
 # Теноры методички ЦБ (Таблица 1, 19 точек)
-cb_tenors = [0.0028, 0.0417, 0.1667, 0.375, 0.625, 0.875, 1.25, 1.75, 
+cb_tenors = [0.0028, 0.0417, 0.1667, 0.375, 0.625, 0.875, 1.25, 1.75,
              2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 12.5, 17.5, 25.0]
 
-# Интерполяция (линейная)
-# Для точек за пределами диапазона MOEX (0.0028, 0.0417, 0.1667 < 0.25 и 25 > 20)
-# используем экстраполяцию крайними значениями
-interp_func = interp1d(moex_tenors, moex_rates, kind='linear', 
-                       fill_value='extrapolate')
+# Линейная интерполяция внутри диапазона MOEX.
+# За его пределами np.interp берёт ближайшее крайнее значение (как требует п. 3.2 8-МР).
+cb_rates = np.interp(cb_tenors, moex_tenors, moex_rates)
 
-cb_rates = interp_func(cb_tenors)
-
-# Создаём DataFrame
-df = pd.DataFrame({
-    'срок_в_годах': cb_tenors,
-    'ставка': cb_rates
-})
-
-# Сохраняем
+df = pd.DataFrame({'срок_в_годах': cb_tenors, 'ставка': np.round(cb_rates, 4)})
 df.to_csv('data/gcurve_2026-07-31.csv', index=False, sep=';')
 df.to_excel('data/gcurve_2026-07-31.xlsx', index=False)
 
-print("Интерполяция завершена!")
 print(f"Получено {len(df)} теноров:")
 print(df)
