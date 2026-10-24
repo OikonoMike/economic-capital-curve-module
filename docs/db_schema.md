@@ -93,7 +93,7 @@ erDiagram
 
 **`curve_latest`** - длинный вид, одна строка = один бакет одной кривой. Поля: `report_date`, `run_id`, `scenario_id`, `scenario_code`, `tenor_label`, `order_no`, `tenor_years`, `t_mid_years`, `rate_pct`, `discount_factor`, `method`, `is_interpolated`, `is_extrapolated`.
 
-**`curve_latest_wide`** - широкий вид, как в расчётном файле, одна строка = один тенор-бакет. Поля: `report_date`, `run_id`, `tenor_label`, `order_no`, `t_mid_years`, ставки `rate_base`, `rate_s1` ... `rate_s6` (база и сценарии 1-6) и коэффициенты `df_base`, `df_s1` ... `df_s6`.
+**`curve_latest_wide`** - широкий вид, как в расчётном файле, одна строка = один тенор-бакет. Поля: `report_date`, `run_id`, `tenor_label`, `order_no`, `t_mid_years`, ставки `rate_base`, `rate_s1` ... `rate_s6` (база и сценарии 1-6) и коэффициенты `df_base`, `df_s1` ... `df_s6`, а также `method`, `is_interpolated`, `is_extrapolated` (как получена базовая ставка в этом тенор-бакете).
 
 ## 3. Формулы
 
