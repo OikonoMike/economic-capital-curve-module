@@ -68,7 +68,7 @@ docker-compose exec postgres psql -U calc_ro -d irrbb
 |---|---|
 | `postgres` | Суперпользователь, полный доступ |
 | `loader_rw` | Чтение и запись во все таблицы |
-| `calc_ro` | Только чтение (представления + curve_run) |
+| `calc_ro` | Только чтение (представления `curve_latest`, `curve_latest_wide`, а также таблицы `curve_run`, `curve_point`, `scenario`, `tenor_grid`, `calendar`) |
 
 
 ## Примеры SQL-запросов

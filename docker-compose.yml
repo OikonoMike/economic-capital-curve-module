@@ -1,4 +1,4 @@
-version: '3.9'
+# docker-compose
 
 services:
   postgres:
@@ -6,7 +6,7 @@ services:
     container_name: irrbb_postgres
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-irrbb}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}

@@ -2,7 +2,7 @@
 
 -- Справочник сценариев
 CREATE TABLE IF NOT EXISTS scenario (
-    scenario_id SMALLINT PRIMARY KEY,
+    scenario_id SMALLINT PRIMARY KEY CHECK (scenario_id BETWEEN 0 AND 6),
     code        TEXT NOT NULL UNIQUE,
     name_ru     TEXT NOT NULL
 );
@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS curve_run (
     finished_at   TIMESTAMPTZ,
     status        TEXT NOT NULL CHECK (status IN ('running', 'success', 'error', 'no_data', 'skipped')),
     error_message TEXT,
-    started_by    TEXT NOT NULL DEFAULT 'scheduler'
+    started_by    TEXT NOT NULL DEFAULT 'scheduler',
+    CHECK (finished_at IS NULL OR finished_at >= started_at)
 );
 
 CREATE INDEX IF NOT EXISTS idx_curve_run_report_date ON curve_run(report_date);
@@ -46,7 +47,8 @@ CREATE TABLE IF NOT EXISTS moex_raw (
     tenor_years    NUMERIC(8,4) NOT NULL,
     rate_pct       NUMERIC(10,4) NOT NULL,
     moex_tradetime TIME,
-    loaded_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    loaded_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (run_id, tenor_years)
 );
 
 CREATE INDEX IF NOT EXISTS idx_moex_raw_run_id ON moex_raw(run_id);
@@ -65,7 +67,9 @@ CREATE TABLE IF NOT EXISTS curve_point (
     method           TEXT NOT NULL CHECK (method IN ('moex', 'nearest', 'interpolation', 'extrapolation')),
     is_interpolated  BOOLEAN NOT NULL DEFAULT FALSE,
     is_extrapolated  BOOLEAN NOT NULL DEFAULT FALSE,
-    UNIQUE (run_id, scenario_id, tenor_label)
+    UNIQUE (run_id, scenario_id, tenor_label),
+    CHECK (is_interpolated = (method = 'interpolation')),
+    CHECK (is_extrapolated = (method = 'extrapolation'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_curve_point_run_id ON curve_point(run_id);
