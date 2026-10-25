@@ -1,93 +1,247 @@
-# economic-capital-curve-module
+# Economic Capital Curve Module
 
+Автоматическая загрузка сырых данных бескупонной кривой доходности ОФЗ с Московской биржи (MOEX ISS API) и сохранение в PostgreSQL.
 
+## Возможности
 
-## Getting started
+- Загрузка кривой за одну дату.
+- Загрузка за диапазон дат с последовательной обработкой рабочих дней.
+- Пропуск дат, успешно загруженных ранее.
+- Тайм-ауты, повторные попытки запросов и паузы между запросами.
+- Режимы запуска `manual` и `scheduled`.
+- Сохранение точек кривой в `moex_raw`.
+- Сохранение истории запусков, статусов и ошибок в `curve_run`.
+- Разделение результатов на `success`, `no_data` и `error`.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Технологии
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- Python
+- PostgreSQL
+- SQLAlchemy
+- Requests
+- pytest
+- MOEX ISS API
 
-## Add your files
+## Структура проекта
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
+```text
+economic-capital-curve-module/
+├── data/
+├── src/
+│   └── moex_loader/
+│       ├── __init__.py
+│       ├── moex_client.py
+│       ├── database.py
+│       └── loader.py
+├── tests/
+│   ├── test_moex_client.py
+│   ├── test_database.py
+│   └── test_loader.py
+├── .env
+├── .gitignore
+├── init_db.py
+├── main.py
+├── requirements.txt
+└── README.md
 ```
-cd existing_repo
-git remote add origin https://gitlab.mai.ru/MRSleptsov/economic-capital-curve-module.git
-git branch -M main
-git push -uf origin main
+
+## Требования
+
+- Python 3.10 или новее.
+- PostgreSQL.
+- Доступ к MOEX ISS API по HTTPS.
+
+## Установка
+
+Создать и активировать виртуальное окружение:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-## Integrate with your tools
+Установить зависимости:
 
-* [Set up project integrations](https://gitlab.mai.ru/MRSleptsov/economic-capital-curve-module/-/settings/integrations)
+```bash
+pip install -r requirements.txt
+```
 
-## Collaborate with your team
+## Настройка PostgreSQL
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+Создать базу данных и пользователя PostgreSQL, если они ещё не существуют.
 
-## Test and Deploy
+Пример для PostgreSQL:
 
-Use the built-in continuous integration in GitLab.
+```sql
+CREATE USER curve_user WITH PASSWORD 'your_password';
+CREATE DATABASE curve_db OWNER curve_user;
+```
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+Создать в корне проекта файл `.env`:
 
-***
+```dotenv
+DATABASE_URL=postgresql+psycopg://curve_user:your_password@localhost:5432/curve_db
+```
 
-# Editing this README
+Заменить `your_password` на настоящий пароль. Если пароль содержит специальные символы, их необходимо корректно URL-кодировать.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Файл `.env` не должен попадать в Git.
 
-## Suggestions for a good README
+Создать таблицы:
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+```bash
+python init_db.py
+```
 
-## Name
-Choose a self-explaining name for your project.
+Используются две основные таблицы:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+- `moex_raw` — сохранённые точки кривой доходности.
+- `curve_run` — история запусков, режим, статус, время выполнения и сообщение об ошибке.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## Запуск
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### Загрузка за одну дату
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```bash
+python main.py --date 2026-10-23
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### Загрузка диапазона дат
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```bash
+python main.py --from-date 2026-10-13 --to-date 2026-10-26
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Начальная и конечная даты включаются в диапазон. Субботы и воскресенья пропускаются. Если MOEX не возвращает данные за рабочую дату, запуск получает статус `no_data`.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+### Указать режим запуска
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Ручной запуск:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```bash
+python main.py --date 2026-10-23 --mode manual
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Запуск с меткой `scheduled`:
 
-## License
-For open source projects, say how it is licensed.
+```bash
+python main.py --date 2026-10-23 --mode scheduled
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Параметр `--mode` записывается в историю запусков. Сам по себе он не запускает приложение по расписанию.
+
+### Настроить тайм-аут и повторные попытки
+
+```bash
+python main.py \
+  --date 2026-10-23 \
+  --timeout 20 \
+  --retries 3 \
+  --retry-pause 2 \
+  --request-pause 1
+```
+
+Параметры:
+
+| Параметр | Значение по умолчанию | Назначение |
+|---|---:|---|
+| `--timeout` | 20 секунд | Тайм-аут HTTP-запроса |
+| `--retries` | 3 | Число попыток запроса, включая первую |
+| `--retry-pause` | 2 секунды | Пауза между повторными попытками |
+| `--request-pause` | 1 секунда | Пауза между датами диапазона |
+| `--mode` | `manual` | Режим запуска |
+
+Если дата уже успешно загружена, повторный запрос за ней пропускается. Ошибка при загрузке одной даты не должна препятствовать обработке следующих дат диапазона.
+
+## Статусы запусков
+
+| Статус | Значение |
+|---|---|
+| `running` | Запуск начат и ещё не завершён |
+| `success` | Данные получены и сохранены |
+| `no_data` | MOEX не вернула данные за указанную дату |
+| `error` | Загрузка или сохранение завершились ошибкой |
+
+Отсутствие данных, например в праздничный день, не считается техническим сбоем.
+
+## Проверка тестов
+
+Запустить тесты:
+
+```bash
+python -m pytest -v
+```
+
+Тесты проверяют клиент MOEX, работу репозитория, сохранение точек, обработку ошибок, повторные попытки и загрузку диапазона дат.
+
+## Проверка истории запусков
+
+Подключиться к PostgreSQL:
+
+```bash
+psql -U curve_user -h localhost -d curve_db
+```
+
+Посмотреть историю:
+
+```sql
+SELECT
+    id,
+    requested_date,
+    mode,
+    status,
+    started_at,
+    finished_at,
+    error_message
+FROM curve_run
+ORDER BY requested_date DESC, id DESC;
+```
+
+Посмотреть количество сохранённых точек по датам:
+
+```sql
+SELECT
+    trade_date,
+    COUNT(*) AS points_count,
+    MIN(period_years) AS min_period_years,
+    MAX(period_years) AS max_period_years
+FROM moex_raw
+GROUP BY trade_date
+ORDER BY trade_date DESC;
+```
+
+Посмотреть точки за конкретную дату:
+
+```sql
+SELECT
+    trade_date,
+    trade_time,
+    period_years,
+    yield_percent,
+    run_id,
+    fetched_at
+FROM moex_raw
+WHERE trade_date = DATE '2026-10-23'
+ORDER BY period_years;
+```
+
+## Источник данных и ограничения
+
+Источник данных — MOEX ISS API, раздел ZCYC (бескупонная кривая доходности).
+
+Используемый endpoint:
+
+`https://iss.moex.com/iss/engines/stock/zcyc.json`
+
+Дата передаётся параметром `date`.
+
+Проверенный формат ответа содержит блок `yearyields` с полями `tradedate`, `tradetime`, `period` и `value`.
+
+В проверенном ответе присутствовали 11 сроков — от 0,25 до 20 лет. Наличие ставок до 30 лет не подтверждено; при обязательном требовании к сроку 30 лет необходимо дополнительно проверить доступность этих данных в другом источнике или endpoint.
+
+## Безопасность
+
+- Не добавлять `.env` в Git.
+- Не хранить пароли базы данных в исходном коде.
+- Не удалять историю ошибок для улучшения демонстрационных результатов.
+- Перед переносом проекта на другую машину настроить подключение к соответствующей базе данных.
