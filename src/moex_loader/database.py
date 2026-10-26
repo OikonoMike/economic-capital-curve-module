@@ -147,7 +147,7 @@ class CurveRepository:
         self,
         requested_date: date,
         mode: str,
-        started_by: str = "unknown",
+        started_by: str = "scheduler",
         status: str = "running",
         error_message: str | None = None,
     ) -> int:

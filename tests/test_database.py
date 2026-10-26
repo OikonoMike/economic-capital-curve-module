@@ -39,7 +39,7 @@ def test_create_and_finish_run(repository):
         assert run is not None
         assert run.report_date == requested_date
         assert run.run_type == "manual"
-        assert run.started_by == "unknown"
+        assert run.started_by == "scheduler"
         assert run.status == "success"
         assert run.finished_at is not None
         assert run.error_message is None
