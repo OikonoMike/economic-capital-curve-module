@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.moex_loader.database import (
     Base,
+    CalendarDay,
     CurveRepository,
     CurveRun,
     MoexRaw,
@@ -142,3 +143,47 @@ def test_save_curve_rejects_wrong_date(repository):
 
     with pytest.raises(ValueError, match="не совпадает"):
         repository.save_curve(run_id, requested_date, points)
+
+
+def test_is_trading_day(repository):
+    """Дата с рабочим и торговым флагами считается торговым днём."""
+    requested_date = date(2026, 10, 26)
+
+    with Session(repository.engine) as session:
+        session.add(
+            CalendarDay(
+                calendar_date=requested_date,
+                is_working_day=True,
+                is_trading_day=True,
+                note=None,
+            )
+        )
+        session.commit()
+
+    assert repository.is_trading_day(requested_date) is True
+
+
+def test_is_not_trading_day(repository):
+    """Дата с выключенным торговым флагом не считается торговой."""
+    requested_date = date(2026, 10, 25)
+
+    with Session(repository.engine) as session:
+        session.add(
+            CalendarDay(
+                calendar_date=requested_date,
+                is_working_day=False,
+                is_trading_day=False,
+                note=None,
+            )
+        )
+        session.commit()
+
+    assert repository.is_trading_day(requested_date) is False
+
+
+def test_is_trading_day_raises_when_date_missing(repository):
+    """Отсутствующая в календаре дата вызывает ошибку."""
+    requested_date = date(2026, 10, 26)
+
+    with pytest.raises(ValueError, match="отсутствует в таблице calendar"):
+        repository.is_trading_day(requested_date)

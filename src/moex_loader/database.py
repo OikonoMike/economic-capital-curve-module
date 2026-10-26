@@ -128,17 +128,20 @@ class CurveRepository:
         self.engine = engine
 
     def is_trading_day(self, requested_date: date) -> bool:
-        """Проверяет общий календарь; при отсутствии даты использует день недели"""
+        """Проверяет торговый календарь; при отсутствии даты сообщает об ошибке."""
         with Session(self.engine) as session:
             calendar_day = session.get(CalendarDay, requested_date)
 
-        if calendar_day is not None:
-            return (
-                calendar_day.is_working_day
-                and calendar_day.is_trading_day
+        if calendar_day is None:
+            raise ValueError(
+                f"Дата {requested_date} отсутствует в таблице calendar. "
+                "Проверьте и заполните торговый календарь."
             )
 
-        return requested_date.weekday() < 5
+        return (
+            calendar_day.is_working_day
+            and calendar_day.is_trading_day
+        )
 
     def create_run(
         self,
