@@ -1,22 +1,14 @@
 import pandas as pd
 import numpy as np
+import os
 
-# Базовая кривая на 19 тенорах ЦБ (таблица 1 приложения к 8-МР).
-# Логика совпадает с листом «базовая» в excel/IRRBB_Stress_Curves_new.xlsx.
+# Параметры рубля (из readme.md)
+D_PAR = 4.0
+S_K_S = 5.0
+S_D_S = 3.0
+T_SWITCH = 4.0
 
-# Сырые данные MOEX (файл zcyc: первая строка 'zcyc', вторая пустая, третья - заголовок)
-raw = pd.read_csv('data/gcurve_2026-07-31_moex.csv', sep=';', skiprows=2, decimal=',')
-cols = [c for c in raw.columns if c.startswith('period_')]
-points = sorted((float(c.split('_')[1]), float(raw.loc[0, c])) for c in cols)
-
-# Для расчёта используем точки MOEX до 20 лет. Тенор 30 лет получаем экстраполяцией
-# (в Excel на листе MOEX тоже 11 точек, до 20 лет).
-MAX_TENOR = 20
-points = [p for p in points if p[0] <= MAX_TENOR]
-x = [p[0] for p in points]
-y = [p[1] for p in points]
-
-# (метка тенора, тенор в годах, T - середина интервала из таблицы 1)
+# Сетка теноров: (метка, срок в годах, T - середина интервала)
 GRID = [
     ('1d', 0.0027, 0.0028), ('1m', 0.0833, 0.0417), ('3m', 0.25, 0.1667), ('6m', 0.5, 0.375),
     ('9m', 0.75, 0.625), ('1y', 1, 0.875), ('1.5y', 1.5, 1.25), ('2y', 2, 1.75),
@@ -25,35 +17,102 @@ GRID = [
     ('20y', 20, 17.5), ('30y', 30, 25),
 ]
 
+def get_base_rate(tenor, x_moex, y_moex):
+    """Возвращает (ставка, метод) для тенора на основе точек MOEX."""
+    if tenor < x_moex[0]:
+        return y_moex[0], 'Ближайшее значение'
+    if tenor > x_moex[-1]:
+        slope = (y_moex[-1] - y_moex[-2]) / (x_moex[-1] - x_moex[-2])
+        return y_moex[-1] + slope * (tenor - x_moex[-1]), 'Экстраполяция'
+    if tenor in x_moex:
+        return y_moex[x_moex.index(tenor)], 'Значение MOEX'
+    return float(np.interp(tenor, x_moex, y_moex)), 'Интерполяция'
 
-def base_rate(tenor):
-    """Возвращает (ставка, метод) для тенора."""
-    if tenor < x[0]:                       # короче первой точки MOEX - ближайшее значение
-        return y[0], 'Ближайшее значение'
-    if tenor > x[-1]:                      # длиннее последней точки - экстраполяция по двум последним
-        slope = (y[-1] - y[-2]) / (x[-1] - x[-2])
-        return y[-1] + slope * (tenor - x[-1]), 'Экстраполяция'
-    if tenor in x:                         # тенор есть на MOEX - берём значение MOEX как есть
-        return y[x.index(tenor)], 'Значение MOEX'
-    return float(np.interp(tenor, x, y)), 'Интерполяция'
+def read_moex_csv(filepath):
+    """Читает сырой файл MOEX (zcyc) и возвращает отфильтрованный список точек."""
+    raw = pd.read_csv(filepath, sep=';', header=1, decimal=',')
+    cols = [c for c in raw.columns if c.startswith('period_')]
+    points_raw = sorted((float(c.split('_')[1]), float(raw.loc[0, c])) for c in cols)
+    # Берем точки до 20 лет (30-летний тенор будет экстраполироваться)
+    return [p for p in points_raw if p[0] <= 20]
 
+def calculate_curves(moex_points: list, output_path: str) -> pd.DataFrame:
+    """
+    Считает базовую кривую, 6 сценариев и DF.
+    Возвращает широкую таблицу (19 строк) и сохраняет в Excel.
+    """
+    x_moex = [p[0] for p in moex_points]
+    y_moex = [p[1] for p in moex_points]
+    
+    result_rows = []
+    for label, tenor, t_mid in GRID:
+        base, method = get_base_rate(tenor, x_moex, y_moex)
+        
+        # Экспоненциальное затухание (EXP(-T/t))
+        exp_term = np.exp(-t_mid / T_SWITCH)
+        
+        # Формулы сценариев
+        s1 = base + D_PAR
+        s2 = base - D_PAR
+        s3 = base - 0.65 * S_K_S * exp_term + 0.9 * S_D_S * (1 - exp_term)
+        s4 = base + 0.8 * S_K_S * exp_term - 0.6 * S_D_S * (1 - exp_term)
+        s5 = base + S_K_S * exp_term
+        s6 = base - S_K_S * exp_term
+        
+        # Коэффициенты дисконтирования DF = (1+r)^(-T)
+        def calc_df(rate_pct):
+            r = rate_pct / 100.0
+            return round((1 + r) ** (-t_mid), 6) if r > -1 else np.nan
+        
+        result_rows.append({
+            'тенор': label,
+            'срок_лет': tenor,
+            'T_середина': t_mid,
+            'метод': method,
+            'is_interpolated': int(method == 'Интерполяция'),
+            'is_extrapolated': int(method == 'Экстраполяция'),
+            
+            'Ставка_БС': round(base, 4),
+            'DF_БС': calc_df(base),
+            
+            'Ставка_С1': round(s1, 4),
+            'DF_С1': calc_df(s1),
+            
+            'Ставка_С2': round(s2, 4),
+            'DF_С2': calc_df(s2),
+            
+            'Ставка_С3': round(s3, 4),
+            'DF_С3': calc_df(s3),
+            
+            'Ставка_С4': round(s4, 4),
+            'DF_С4': calc_df(s4),
+            
+            'Ставка_С5': round(s5, 4),
+            'DF_С5': calc_df(s5),
+            
+            'Ставка_С6': round(s6, 4),
+            'DF_С6': calc_df(s6),
+        })
+            
+    df = pd.DataFrame(result_rows)
+    # Сортируем по порядку теноров
+    order = [row[0] for row in GRID]
+    df['тенор'] = pd.Categorical(df['тенор'], categories=order, ordered=True)
+    
+    # Создаем папку, если её нет
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    df.to_excel(output_path, index=False)
+    
+    return df
 
-rows = []
-for label, tenor, t_mid in GRID:
-    rate, method = base_rate(tenor)
-    rows.append({
-        'тенор': label,
-        'тенор_лет': tenor,
-        'T_середина_интервала': t_mid,
-        'ставка': round(rate, 4),
-        'метод': method,
-        'интерполировано': int(method == 'Интерполяция'),
-        'экстраполировано': int(method == 'Экстраполяция'),
-    })
-
-df = pd.DataFrame(rows)
-df.to_csv('data/gcurve_2026-07-31.csv', index=False, sep=';')
-df.to_excel('data/gcurve_2026-07-31.xlsx', index=False)
-
-print(f"Получено {len(df)} теноров:")
-print(df)
+if __name__ == "__main__":
+    input_file = 'data/gcurve_2026-07-31_moex.csv'
+    output_file = 'data/curves_with_scenarios_and_df.xlsx'
+    
+    try:
+        points = read_moex_csv(input_file)
+        df = calculate_curves(points, output_file)
+        print(f"Расчет завершен. Файл сохранен: {output_file}")
+        print(df[['тенор', 'Ставка_БС', 'Ставка_С3']].head())
+    except FileNotFoundError:
+        print(f"Ошибка: Файл {input_file} не найден. Проверьте путь.")
