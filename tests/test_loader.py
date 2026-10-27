@@ -121,7 +121,11 @@ def test_all_retries_fail(loader, client, repository):
 def test_range_skips_weekends(loader, repository):
     # Пятница, суббота, воскресенье, понедельник.
     repository.is_trading_day.side_effect = lambda day: day.weekday() < 5
-    loader.load_date = Mock(side_effect=["success", "success"])
+    loader.load_date = Mock(
+        side_effect=lambda day, mode: (
+            "skipped" if day.weekday() >= 5 else "success"
+        )
+    )
 
     result = loader.load_range(
         date(2026, 10, 23),
@@ -130,11 +134,7 @@ def test_range_skips_weekends(loader, repository):
 
     assert result["success"] == 2
     assert result["skipped"] == 2
-    assert loader.load_date.call_count == 2
-    assert loader.load_date.call_args_list[0].args[0] == date(2026, 10, 23)
-    assert loader.load_date.call_args_list[1].args[0] == date(2026, 10, 26)
-
-
+    assert loader.load_date.call_count == 4
 def test_range_continues_after_error(loader, repository):
     repository.is_trading_day.side_effect = lambda day: True
     loader.load_date = Mock(

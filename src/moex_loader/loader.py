@@ -46,10 +46,17 @@ class CurveLoader:
         if mode not in {"manual", "scheduled"}:
             raise ValueError("mode должен быть 'manual' или 'scheduled'.")
 
-        # Не создаём запись о загрузке для даты, когда торгов не было
+        # Фиксируем пропуск загрузки для нерабочего дня
         if not self.repository.is_trading_day(requested_date):
+            self.repository.create_run(
+                requested_date=requested_date,
+                mode=mode,
+                started_by=self.started_by,
+                status="skipped",
+                error_message="нерабочий день по календарю",
+            )
             logger.info(
-                "%s: не торговый день, пропускаем.",
+                "%s: нерабочий день по календарю, загрузка пропущена.",
                 requested_date,
             )
             return "skipped"
@@ -164,15 +171,8 @@ class CurveLoader:
         current_date = from_date
 
         while current_date <= to_date:
-            if not self.repository.is_trading_day(current_date):
-                logger.info(
-                    "%s: не торговый день, пропускаем.",
-                    current_date,
-                )
-                results["skipped"] += 1
-            else:
-                status = self.load_date(current_date, mode)
-                results[status] += 1
+            status = self.load_date(current_date, mode)
+            results[status] += 1
 
             if current_date < to_date and self.request_pause > 0:
                 time.sleep(self.request_pause)
