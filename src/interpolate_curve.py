@@ -80,6 +80,13 @@ def to_long_format(wide_df: pd.DataFrame) -> pd.DataFrame:
     scenarios = {
         'БС': 0, 'С1': 1, 'С2': 2, 'С3': 3, 'С4': 4, 'С5': 5, 'С6': 6
     }
+
+    method_mapping = {
+        'Значение MOEX': 'moex',
+        'Ближайшее значение': 'nearest',
+        'Интерполяция': 'interpolation',
+        'Экстраполяция': 'extrapolation'
+    }
     
     for _, row in wide_df.iterrows():
         for scen_name, scen_id in scenarios.items():
