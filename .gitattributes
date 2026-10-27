@@ -1,0 +1,7 @@
+# Автоматически определять переносы строк для обычных файлов
+* text=auto
+
+# А для shell-скриптов и SQL всегда использовать Linux-формат (LF)
+*.sh text eol=lf
+*.sql text eol=lf
+*.py text eol=lf
