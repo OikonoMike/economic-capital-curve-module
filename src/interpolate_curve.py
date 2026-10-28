@@ -97,7 +97,7 @@ def to_long_format(wide_df: pd.DataFrame) -> pd.DataFrame:
                 't_mid_years': row['T_середина'],
                 'rate_pct': row[f'Ставка_{scen_name}'],
                 'discount_factor': row[f'DF_{scen_name}'],
-                'method': row['метод'],
+                'method': method_mapping[row['метод']],
                 'is_interpolated': row['is_interpolated'],
                 'is_extrapolated': row['is_extrapolated'],
             })

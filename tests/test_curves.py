@@ -42,3 +42,10 @@ def test_long_format_shape(moex_points):
     assert len(long_df) == 133, "Длинная таблица должна содержать 133 строки"
     assert 'scenario_id' in long_df.columns
     assert 'discount_factor' in long_df.columns
+
+
+def test_long_format_method_values(moex_points):
+    """Значения method в длинном формате совпадают с допустимыми в базе (curve_point)."""
+    long_df = to_long_format(calculate_curves(moex_points))
+
+    assert set(long_df['method']) == {'moex', 'nearest', 'interpolation', 'extrapolation'}
