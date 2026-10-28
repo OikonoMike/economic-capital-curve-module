@@ -21,8 +21,8 @@ def test_holidays():
     assert is_trading_day(new_year) is False
 
 def test_working_saturday():
-    """Проверка перенесенной рабочей субботы (12 декабря 2026)."""
-    working_sat = datetime.date(2026, 12, 12)
+    """Проверка перенесенной рабочей субботы (20 февраля 2027)."""
+    working_sat = datetime.date(2027, 2, 20)
     assert is_trading_day(working_sat) is True
 
 def test_get_previous_trading_day_from_monday():
