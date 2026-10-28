@@ -1,0 +1,2 @@
+30 16 * * 1-5 /home/ubuntu/run_loader.sh >> /home/ubuntu/loader.log 2>&1
+40 16 * * 1-5 /home/ubuntu/run_calculator.sh >> /home/ubuntu/calculator.log 2>&1
