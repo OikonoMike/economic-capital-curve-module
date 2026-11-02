@@ -59,8 +59,8 @@ docker-compose exec postgres psql -U calc_ro -d irrbb
 ### Представления (для калькулятора)
 |Представление|Описание|
 |---|---|
-|curve_latest|Длинный вид: последний успешный запуск за дату|
-|curve_latest_wide|Широкий вид: одна строка = один тенор, ставки по всем сценариям|
+|curve_latest|Длинный вид: последний успешный запуск за дату, включает `calculated_at`|
+|curve_latest_wide|Широкий вид: одна строка = один тенор, ставки по всем сценариям, включает `calculated_at`|
 
 
 ## Пользователи и права
@@ -94,6 +94,16 @@ FROM curve_run
 ORDER BY run_id DESC
 LIMIT 20;
 ```
+
+### Выгрузка кривых с временем построения и данными о запуске
+```sql
+SELECT cl.report_date, cl.scenario_id, cl.tenor_label, cl.rate_pct, cl.discount_factor,
+       cl.calculated_at, cr.run_type, cr.started_by, cr.started_at
+FROM curve_latest cl
+JOIN curve_run cr USING (run_id)
+WHERE cl.report_date = '2026-10-30'
+ORDER BY cl.scenario_id, cl.order_no;
+
 
 
 ## Остановка и сброс
