@@ -85,15 +85,16 @@ erDiagram
 | `method` | TEXT | как получена базовая ставка: `moex`, `nearest`, `interpolation`, `extrapolation` | `interpolation` |
 | `is_interpolated` | BOOLEAN | значение получено интерполяцией | true |
 | `is_extrapolated` | BOOLEAN | значение получено экстраполяцией | false |
+| `calculated_at` | TIMESTAMPTZ | когда построена (рассчитана) эта строка кривой; при пересчёте обновляется | 2026-10-30 19:40:03+03 |
 
 Ограничения: уникальность (`run_id`, `scenario_id`, `tenor_label`); флаги согласованы с `method` (`is_interpolated` = true только при `interpolation`, `is_extrapolated` - только при `extrapolation`).
 
 ### Представления для калькулятора
 Калькулятор читает не сами таблицы, а два представления: в них всегда последний успешный запуск за дату (правило 2 в разделе 4).
 
-**`curve_latest`** - длинный вид, одна строка = один бакет одной кривой. Поля: `report_date`, `run_id`, `scenario_id`, `scenario_code`, `tenor_label`, `order_no`, `tenor_years`, `t_mid_years`, `rate_pct`, `discount_factor`, `method`, `is_interpolated`, `is_extrapolated`.
+**`curve_latest`** - длинный вид, одна строка = один бакет одной кривой. Поля: `report_date`, `run_id`, `scenario_id`, `scenario_code`, `tenor_label`, `order_no`, `tenor_years`, `t_mid_years`, `rate_pct`, `discount_factor`, `method`, `is_interpolated`, `is_extrapolated`, `calculated_at`.
 
-**`curve_latest_wide`** - широкий вид, как в расчётном файле, одна строка = один тенор-бакет. Поля: `report_date`, `run_id`, `tenor_label`, `order_no`, `t_mid_years`, ставки `rate_base`, `rate_s1` ... `rate_s6` (база и сценарии 1-6) и коэффициенты `df_base`, `df_s1` ... `df_s6`, а также `method`, `is_interpolated`, `is_extrapolated` (как получена базовая ставка в этом тенор-бакете).
+**`curve_latest_wide`** - широкий вид, как в расчётном файле, одна строка = один тенор-бакет. Поля: `report_date`, `run_id`, `tenor_label`, `order_no`, `t_mid_years`, ставки `rate_base`, `rate_s1` ... `rate_s6` (база и сценарии 1-6) и коэффициенты `df_base`, `df_s1` ... `df_s6`, а также `method`, `is_interpolated`, `is_extrapolated` (как получена базовая ставка в этом тенор-бакете), `calculated_at` (время построения).
 
 ## 3. Формулы
 
@@ -115,7 +116,8 @@ erDiagram
 3. **Нерабочий день:** по календарю запуск пропускается, пишется строка `status = 'skipped'` с причиной, ошибка не поднимается.
 4. **Нет данных в рабочий день:** `status = 'no_data'`, в следующий рабочий день пробуем догрузить пропущенную дату.
 5. **Сбой:** `status = 'error'` и текст в `error_message`; калькулятору остаётся прошлый успешный запуск.
-6. **История для защиты:** ручные запуски за прошлые даты (`run_type = 'manual'`) и автоматические (`'scheduled'`) видны в `curve_run`.
+6. **Время построения:** в `curve_point.calculated_at` записывается, когда рассчитана кривая. Время загрузки точек с биржи хранится в `curve_run` и `moex_raw.loaded_at`. При ручном пересчёте `calculated_at` обновляется, поэтому видно, какой вариант кривой свежий.
+7. **История для защиты:** ручные запуски за прошлые даты (`run_type = 'manual'`) и автоматические (`'scheduled'`) видны в `curve_run`.
 
 ## 5. Примеры запросов
 
@@ -130,6 +132,14 @@ ORDER BY order_no;
 SELECT * FROM curve_latest_wide
 WHERE report_date = '2026-07-31'
 ORDER BY order_no;
+
+-- Выгрузка кривых за дату с временем построения и данными о запуске
+SELECT cl.report_date, cl.scenario_id, cl.tenor_label, cl.rate_pct, cl.discount_factor,
+       cl.calculated_at, cr.run_type, cr.started_by, cr.started_at
+FROM curve_latest cl
+JOIN curve_run cr USING (run_id)
+WHERE cl.report_date = '2026-10-30'
+ORDER BY cl.scenario_id, cl.order_no;
 
 -- История запусков за последние дни
 SELECT run_id, report_date, run_type, status, started_at, error_message
