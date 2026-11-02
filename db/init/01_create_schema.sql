@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS curve_point (
     method           TEXT NOT NULL CHECK (method IN ('moex', 'nearest', 'interpolation', 'extrapolation')),
     is_interpolated  BOOLEAN NOT NULL DEFAULT FALSE,
     is_extrapolated  BOOLEAN NOT NULL DEFAULT FALSE,
+    calculated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (run_id, scenario_id, tenor_label),
     CHECK (is_interpolated = (method = 'interpolation')),
     CHECK (is_extrapolated = (method = 'extrapolation'))
@@ -94,7 +95,8 @@ SELECT
     cp.discount_factor,
     cp.method,
     cp.is_interpolated,
-    cp.is_extrapolated
+    cp.is_extrapolated,
+    cp.calculated_at
 FROM curve_point cp
 JOIN scenario s ON cp.scenario_id = s.scenario_id
 JOIN tenor_grid tg ON cp.tenor_label = tg.tenor_label
@@ -109,30 +111,45 @@ JOIN (
 -- Представление 2: curve_latest_wide (широкий вид)
 -- Одна строка = один тенор-бакет, ставки и DF по всем сценариям
 -- ============================================================
-CREATE OR REPLACE VIEW curve_latest_wide AS
-SELECT
-    cl.report_date,
-    cl.run_id,
-    cl.tenor_label,
-    cl.order_no,
-    cl.t_mid_years,
-    MAX(CASE WHEN cl.scenario_id = 0 THEN cl.rate_pct END)           AS rate_base,
-    MAX(CASE WHEN cl.scenario_id = 1 THEN cl.rate_pct END)           AS rate_s1,
-    MAX(CASE WHEN cl.scenario_id = 2 THEN cl.rate_pct END)           AS rate_s2,
-    MAX(CASE WHEN cl.scenario_id = 3 THEN cl.rate_pct END)           AS rate_s3,
-    MAX(CASE WHEN cl.scenario_id = 4 THEN cl.rate_pct END)           AS rate_s4,
-    MAX(CASE WHEN cl.scenario_id = 5 THEN cl.rate_pct END)           AS rate_s5,
-    MAX(CASE WHEN cl.scenario_id = 6 THEN cl.rate_pct END)           AS rate_s6,
-    MAX(CASE WHEN cl.scenario_id = 0 THEN cl.discount_factor END)    AS df_base,
-    MAX(CASE WHEN cl.scenario_id = 1 THEN cl.discount_factor END)    AS df_s1,
-    MAX(CASE WHEN cl.scenario_id = 2 THEN cl.discount_factor END)    AS df_s2,
-    MAX(CASE WHEN cl.scenario_id = 3 THEN cl.discount_factor END)    AS df_s3,
-    MAX(CASE WHEN cl.scenario_id = 4 THEN cl.discount_factor END)    AS df_s4,
-    MAX(CASE WHEN cl.scenario_id = 5 THEN cl.discount_factor END)    AS df_s5,
-    MAX(CASE WHEN cl.scenario_id = 6 THEN cl.discount_factor END)    AS df_s6,
-    MAX(cl.method)                                                   AS method,
-    MAX(cl.is_interpolated::int)::boolean                            AS is_interpolated,
-    MAX(cl.is_extrapolated::int)::boolean                            AS is_extrapolated
-FROM curve_latest cl
-GROUP BY
-    cl.report_date, cl.run_id, cl.tenor_label, cl.order_no, cl.t_mid_years;
+DROP VIEW IF EXISTS curve_latest_wide;
+CREATE VIEW curve_latest_wide AS
+WITH latest_runs AS (
+    SELECT DISTINCT ON (report_date) 
+        report_date, 
+        run_id 
+    FROM curve_run 
+    WHERE status = 'success' 
+    ORDER BY report_date DESC, run_id DESC
+),
+pivot_data AS (
+    SELECT
+        lr.report_date,
+        lr.run_id,
+        cp.tenor_label,
+        tg.order_no,
+        cp.t_mid_years,
+        MAX(CASE WHEN cp.scenario_id = 0 THEN cp.rate_pct END)           AS rate_base,
+        MAX(CASE WHEN cp.scenario_id = 1 THEN cp.rate_pct END)           AS rate_s1,
+        MAX(CASE WHEN cp.scenario_id = 2 THEN cp.rate_pct END)           AS rate_s2,
+        MAX(CASE WHEN cp.scenario_id = 3 THEN cp.rate_pct END)           AS rate_s3,
+        MAX(CASE WHEN cp.scenario_id = 4 THEN cp.rate_pct END)           AS rate_s4,
+        MAX(CASE WHEN cp.scenario_id = 5 THEN cp.rate_pct END)           AS rate_s5,
+        MAX(CASE WHEN cp.scenario_id = 6 THEN cp.rate_pct END)           AS rate_s6,
+        MAX(CASE WHEN cp.scenario_id = 0 THEN cp.discount_factor END)    AS df_base,
+        MAX(CASE WHEN cp.scenario_id = 1 THEN cp.discount_factor END)    AS df_s1,
+        MAX(CASE WHEN cp.scenario_id = 2 THEN cp.discount_factor END)    AS df_s2,
+        MAX(CASE WHEN cp.scenario_id = 3 THEN cp.discount_factor END)    AS df_s3,
+        MAX(CASE WHEN cp.scenario_id = 4 THEN cp.discount_factor END)    AS df_s4,
+        MAX(CASE WHEN cp.scenario_id = 5 THEN cp.discount_factor END)    AS df_s5,
+        MAX(CASE WHEN cp.scenario_id = 6 THEN cp.discount_factor END)    AS df_s6,
+        MAX(CASE WHEN cp.scenario_id = 0 THEN cp.method END)             AS method,
+        MAX(CASE WHEN cp.scenario_id = 0 THEN cp.is_interpolated END)    AS is_interpolated,
+        MAX(CASE WHEN cp.scenario_id = 0 THEN cp.is_extrapolated END)    AS is_extrapolated,
+        MAX(cp.calculated_at) AS calculated_at
+    FROM latest_runs lr
+    JOIN curve_point cp ON lr.run_id = cp.run_id
+    JOIN tenor_grid tg ON cp.tenor_label = tg.tenor_label
+    GROUP BY
+        lr.report_date, lr.run_id, cp.tenor_label, tg.order_no, cp.t_mid_years
+)
+SELECT * FROM pivot_data ORDER BY order_no;

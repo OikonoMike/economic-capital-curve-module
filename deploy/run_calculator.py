@@ -77,18 +77,25 @@ def get_run_id(engine, report_date):
 
 
 def save_curve_points(engine, run_id, report_date, long_df):
-    """Записывает 133 строки в curve_point."""
+    """Записывает 133 строки в curve_point с обновлением при конфликте."""
     with engine.begin() as conn:
         for _, row in long_df.iterrows():
             method_en = row['method']
             conn.execute(text("""
                 INSERT INTO curve_point 
                 (run_id, report_date, scenario_id, tenor_label, tenor_years, t_mid_years,
-                 rate_pct, discount_factor, method, is_interpolated, is_extrapolated)
+                 rate_pct, discount_factor, method, is_interpolated, is_extrapolated, calculated_at)
                 VALUES 
                 (:run_id, :date, :scen, :tenor_label, :tenor_years, :t_mid,
-                 :rate, :df, :method, :is_interp, :is_extrap)
-                ON CONFLICT (run_id, scenario_id, tenor_label) DO NOTHING
+                 :rate, :df, :method, :is_interp, :is_extrap, NOW())
+                ON CONFLICT (run_id, scenario_id, tenor_label) 
+                DO UPDATE SET 
+                    rate_pct = EXCLUDED.rate_pct,
+                    discount_factor = EXCLUDED.discount_factor,
+                    method = EXCLUDED.method,
+                    is_interpolated = EXCLUDED.is_interpolated,
+                    is_extrapolated = EXCLUDED.is_extrapolated,
+                    calculated_at = NOW()
             """), {
                 "run_id": run_id,
                 "date": report_date,
