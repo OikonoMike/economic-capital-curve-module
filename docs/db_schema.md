@@ -167,10 +167,24 @@ SELECT run_id, report_date, run_type, status, started_at, error_message
 FROM curve_run
 ORDER BY run_id DESC
 LIMIT 20;
+
+-- Результаты проверок для запуска
+SELECT dc.run_id, dc.check_code, dc.status, dc.details
+FROM data_check dc
+WHERE dc.run_id = 125
+ORDER BY dc.check_code;
+
+-- Запуски с ошибками проверок
+SELECT cr.report_date, cr.run_id, cr.status, cr.error_message,
+       dc.check_code, dc.status AS check_status, dc.details
+FROM curve_run cr
+LEFT JOIN data_check dc ON dc.run_id = cr.run_id
+WHERE cr.status = 'error'
+ORDER BY cr.run_id DESC;
 ```
 
 ## 6. Доступ
 
-- `loader_rw` - загрузчик: чтение и запись в таблицы запусков и кривых.
-- `calc_ro` - калькулятор: **только чтение** (представления `curve_latest`, `curve_latest_wide` и таблицы запусков).
+- `loader_rw` - загрузчик: чтение и запись в таблицы запусков, кривых и проверок (`data_check`).
+- `calc_ro` - калькулятор: **только чтение** (представления `curve_latest`, `curve_latest_wide`, таблицы `curve_run`, `curve_point`, `scenario`, `tenor_grid`, `calendar`, `data_check`).
 - Пароли не хранятся в репозитории, а задаются через переменные окружения при развёртывании.
