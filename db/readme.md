@@ -103,6 +103,7 @@ FROM curve_latest cl
 JOIN curve_run cr USING (run_id)
 WHERE cl.report_date = '2026-10-30'
 ORDER BY cl.scenario_id, cl.order_no;
+```
 
 
 
