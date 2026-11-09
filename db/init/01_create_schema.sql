@@ -53,6 +53,18 @@ CREATE TABLE IF NOT EXISTS moex_raw (
 
 CREATE INDEX IF NOT EXISTS idx_moex_raw_run_id ON moex_raw(run_id);
 
+-- Проверки исходных данных MOEX
+CREATE TABLE IF NOT EXISTS data_check (
+    run_id     BIGINT NOT NULL REFERENCES curve_run(run_id) ON DELETE CASCADE,
+    check_code TEXT   NOT NULL CHECK (check_code IN ('tenors', 'rates', 'tradetime', 'report_date')),
+    status     TEXT   NOT NULL CHECK (status IN ('ok', 'error')),
+    details    TEXT,
+    PRIMARY KEY (run_id, check_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_check_run_id ON data_check(run_id);
+CREATE INDEX IF NOT EXISTS idx_data_check_status ON data_check(status);
+
 -- Результат: кривые (19 теноров × 7 сценариев = 133 строки на запуск)
 CREATE TABLE IF NOT EXISTS curve_point (
     point_id         BIGSERIAL PRIMARY KEY,
