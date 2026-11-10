@@ -221,23 +221,25 @@ class CurveRepository:
             return session.scalar(statement) is not None
 
     def save_data_checks(self, run_id: int, checks: dict) -> None:
-        """
-        Записывает результаты проверок в data_check.
-        checks — результат run_all_checks() без ключей all_ok и error_summary.
-        Использует session.merge() для upsert по PK (run_id, check_code).
-        """
-        with Session(self.engine) as session:
-            for code, (status, details) in checks.items():
-                if code in ('all_ok', 'error_summary'):
-                    continue
-                check = DataCheck(
-                    run_id=run_id,
-                    check_code=code,
-                    status=status,
-                    details=details,
-                )
-                session.merge(check)
-            session.commit()
+    """
+    Записывает результаты проверок в data_check.
+    checks — результат run_all_checks().
+    Использует session.merge() для upsert по PK (run_id, check_code).
+    """
+    with Session(self.engine) as session:
+        for code, value in checks.items():
+            # Пропускаем служебные ключи ДО распаковки
+            if code in ('all_ok', 'error_summary'):
+                continue
+            status, details = value
+            check = DataCheck(
+                run_id=run_id,
+                check_code=code,
+                status=status,
+                details=details,
+            )
+            session.merge(check)
+        session.commit()
 
     def save_curve(
         self,
