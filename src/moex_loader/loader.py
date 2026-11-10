@@ -2,8 +2,8 @@
 
 import logging
 import time
-from datetime import date, timedelta
-from typing import Any
+from datetime import date, timedelta, time as dt_time
+from typing import Any, Optional
 
 from src.moex_loader.database import CurveRepository
 from src.moex_loader.moex_client import (
@@ -11,6 +11,7 @@ from src.moex_loader.moex_client import (
     MoexClientError,
     MoexNoDataError,
 )
+from src.data_checks import run_all_checks
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,27 @@ class CurveLoader:
         self.retry_pause = retry_pause
         self.request_pause = request_pause
         self.started_by = started_by
+
+    def _extract_tradetime(self, points: list[dict[str, Any]]) -> Optional[dt_time]:
+        """Извлекает время среза MOEX из первой точки (все точки должны иметь одинаковое время)."""
+        if not points:
+            return None
+        raw_time = points[0].get("tradetime")
+        if not raw_time:
+            return None
+        try:
+            return dt_time.fromisoformat(str(raw_time))
+        except (ValueError, TypeError):
+            return None
+
+    def _extract_actual_date(self, points: list[dict[str, Any]]) -> Optional[date]:
+        """Извлекает фактическую дату данных из первой точки."""
+        if not points:
+            return None
+        try:
+            return date.fromisoformat(str(points[0]["tradedate"]))
+        except (ValueError, TypeError, KeyError):
+            return None
 
     def load_date(self, requested_date: date, mode: str = "manual") -> str:
         """Загружает одну дату и возвращает конечный статус"""
@@ -79,6 +101,38 @@ class CurveLoader:
 
         try:
             points = self._fetch_with_retries(requested_date)
+
+            # Извлекаем данные для проверок
+            tenors_and_rates = [
+                (float(p["period"]), float(p["value"])) for p in points
+            ]
+            moex_tradetime = self._extract_tradetime(points)
+            actual_date = self._extract_actual_date(points)
+
+            # Запускаем все 4 проверки
+            checks_result = run_all_checks(
+                points=tenors_and_rates,
+                moex_tradetime=moex_tradetime,
+                actual_date=actual_date,
+                requested_date=requested_date,
+            )
+
+            # Сохраняем результаты проверок в data_check (ВСЕГДА)
+            self.repository.save_data_checks(run_id, checks_result)
+
+            # Если хоть одна проверка упала — стоп, расчёт не запускается
+            if not checks_result["all_ok"]:
+                self.repository.finish_run(
+                    run_id,
+                    "error",
+                    error_message=checks_result["error_summary"],
+                )
+                logger.error(
+                    "%s: проверки не пройдены: %s",
+                    requested_date,
+                    checks_result["error_summary"],
+                )
+                return "error"
 
             inserted_count = self.repository.save_curve(
                 run_id=run_id,
