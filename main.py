@@ -4,7 +4,7 @@ import argparse
 import logging
 import time
 from datetime import date, timedelta
-
+from src.pipeline.runner import run_for_date
 from src.moex_loader.database import CurveRepository, create_db_engine
 from src.moex_loader.loader import CurveLoader
 from src.moex_loader.moex_client import MoexClient
