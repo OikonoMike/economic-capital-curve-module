@@ -13,10 +13,70 @@ from src.moex_loader.moex_client import (
 SAMPLE_POINTS = [
     {
         "tradedate": "2026-10-23",
-        "tradetime": "18:00:00",
+        "tradetime": "18:30:00",
         "period": 0.25,
         "value": 13.4726,
-    }
+    },
+    {
+        "tradedate": "2026-10-23",
+        "tradetime": "18:30:00",
+        "period": 0.5,
+        "value": 13.45,
+    },
+    {
+        "tradedate": "2026-10-23",
+        "tradetime": "18:30:00",
+        "period": 0.75,
+        "value": 13.42,
+    },
+    {
+        "tradedate": "2026-10-23",
+        "tradetime": "18:30:00",
+        "period": 1.0,
+        "value": 13.40,
+    },
+    {
+        "tradedate": "2026-10-23",
+        "tradetime": "18:30:00",
+        "period": 2.0,
+        "value": 13.35,
+    },
+    {
+        "tradedate": "2026-10-23",
+        "tradetime": "18:30:00",
+        "period": 3.0,
+        "value": 13.30,
+    },
+    {
+        "tradedate": "2026-10-23",
+        "tradetime": "18:30:00",
+        "period": 5.0,
+        "value": 13.20,
+    },
+    {
+        "tradedate": "2026-10-23",
+        "tradetime": "18:30:00",
+        "period": 7.0,
+        "value": 13.10,
+    },
+    {
+        "tradedate": "2026-10-23",
+        "tradetime": "18:30:00",
+        "period": 10.0,
+        "value": 13.00,
+    },
+    {
+        "tradedate": "2026-10-23",
+        "tradetime": "18:30:00",
+        "period": 15.0,
+        "value": 12.90,
+    },
+    {
+        "tradedate": "2026-10-23",
+        "tradetime": "18:30:00",
+        "period": 20.0,
+        "value": 12.80,
+    },
 ]
 
 
