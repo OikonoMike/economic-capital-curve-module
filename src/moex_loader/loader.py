@@ -64,11 +64,10 @@ class CurveLoader:
             return None
 
     def load_date(self, requested_date: date, mode: str = "manual") -> str:
-        """Загружает одну дату и возвращает конечный статус"""
+        """Загружает одну дату и возвращает конечный статус."""
         if mode not in {"manual", "scheduled"}:
             raise ValueError("mode должен быть 'manual' или 'scheduled'.")
 
-        # Фиксируем пропуск загрузки для нерабочего дня
         if not self.repository.is_trading_day(requested_date):
             self.repository.create_run(
                 requested_date=requested_date,
@@ -77,10 +76,7 @@ class CurveLoader:
                 status="skipped",
                 error_message="нерабочий день по календарю",
             )
-            logger.info(
-                "%s: нерабочий день по календарю, загрузка пропущена.",
-                requested_date,
-            )
+            logger.info("%s: нерабочий день по календарю.", requested_date)
             return "skipped"
 
         if self.repository.has_successful_run(requested_date):
@@ -92,6 +88,7 @@ class CurveLoader:
             mode=mode,
             started_by=self.started_by,
         )
+
         logger.info(
             "Начинаем загрузку %s (mode=%s, run_id=%s).",
             requested_date,
@@ -99,17 +96,37 @@ class CurveLoader:
             run_id,
         )
 
+        status, error_message = self.load_for_run(requested_date, run_id)
+
+        if status != "success":
+            self.repository.finish_run(
+                run_id,
+                status,
+                error_message=error_message,
+            )
+            return status
+
+        self.repository.finish_run(run_id, "success")
+        return "success"
+
+    def load_for_run(
+            self,
+            requested_date: date,
+            run_id: int,
+    ) -> tuple[str, Optional[str]]:
+        """Загружает и проверяет MOEX-данные для существующего запуска.
+
+        Не завершает curve_run: это обязанность вызывающего кода.
+        """
         try:
             points = self._fetch_with_retries(requested_date)
 
-            # Извлекаем данные для проверок
             tenors_and_rates = [
                 (float(p["period"]), float(p["value"])) for p in points
             ]
             moex_tradetime = self._extract_tradetime(points)
             actual_date = self._extract_actual_date(points)
 
-            # Запускаем все 4 проверки
             checks_result = run_all_checks(
                 points=tenors_and_rates,
                 moex_tradetime=moex_tradetime,
@@ -117,22 +134,16 @@ class CurveLoader:
                 requested_date=requested_date,
             )
 
-            # Сохраняем результаты проверок в data_check (ВСЕГДА)
             self.repository.save_data_checks(run_id, checks_result)
 
-            # Если хоть одна проверка упала — стоп, расчёт не запускается
             if not checks_result["all_ok"]:
-                self.repository.finish_run(
-                    run_id,
-                    "error",
-                    error_message=checks_result["error_summary"],
-                )
+                message = checks_result["error_summary"]
                 logger.error(
                     "%s: проверки не пройдены: %s",
                     requested_date,
-                    checks_result["error_summary"],
+                    message,
                 )
-                return "error"
+                return "error", message
 
             inserted_count = self.repository.save_curve(
                 run_id=run_id,
@@ -140,42 +151,23 @@ class CurveLoader:
                 points=points,
             )
 
-            self.repository.finish_run(run_id, "success")
             logger.info(
-                "%s: успешно, получено точек: %s, добавлено новых: %s.",
+                "%s: получено точек: %s, добавлено новых: %s.",
                 requested_date,
                 len(points),
                 inserted_count,
             )
-            return "success"
+            return "success", None
 
         except MoexNoDataError as exc:
             message = str(exc)
-            self.repository.finish_run(
-                run_id,
-                "no_data",
-                error_message=message,
-            )
             logger.info("%s: данных нет (%s).", requested_date, message)
-            return "no_data"
+            return "no_data", message
 
         except Exception as exc:
             message = f"{type(exc).__name__}: {exc}"
             logger.exception("Ошибка загрузки за %s.", requested_date)
-
-            try:
-                self.repository.finish_run(
-                    run_id,
-                    "error",
-                    error_message=message,
-                )
-            except Exception:
-                logger.exception(
-                    "Не удалось записать статус error для run_id=%s.",
-                    run_id,
-                )
-
-            return "error"
+            return "error", message
 
     def _fetch_with_retries(
         self,

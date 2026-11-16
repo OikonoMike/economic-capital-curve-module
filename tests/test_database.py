@@ -12,6 +12,9 @@ from src.moex_loader.database import (
     CurveRepository,
     CurveRun,
     MoexRaw,
+    CurvePoint,
+    Scenario,
+    TenorGrid,
 )
 
 
@@ -187,3 +190,93 @@ def test_is_trading_day_raises_when_date_missing(repository):
 
     with pytest.raises(ValueError, match="отсутствует в таблице calendar"):
         repository.is_trading_day(requested_date)
+
+def test_get_moex_points_by_run_id(repository):
+    requested_date = date(2026, 10, 23)
+    run_id = repository.create_run(requested_date, "manual")
+
+    points = [
+        {
+            "tradedate": "2026-10-23",
+            "tradetime": "18:30:00",
+            "period": 0.25,
+            "value": 13.5,
+        },
+        {
+            "tradedate": "2026-10-23",
+            "tradetime": "18:30:00",
+            "period": 0.5,
+            "value": 13.7,
+        },
+    ]
+
+    repository.save_curve(run_id, requested_date, points)
+
+    result = repository.get_moex_points(run_id)
+
+    assert result == [(0.25, 13.5), (0.5, 13.7)]
+
+def test_save_curve_points(repository):
+    import pandas as pd
+
+    requested_date = date(2026, 10, 23)
+    run_id = repository.create_run(requested_date, "manual")
+
+    with Session(repository.engine) as session:
+        session.add_all([
+            Scenario(
+                scenario_id=i,
+                code=f"S{i}",
+                name_ru=f"Сценарий {i}",
+            )
+            for i in range(7)
+        ])
+
+        session.add(
+            TenorGrid(
+                tenor_label="1y",
+                order_no=1,
+                interval_name="1 год",
+                tenor_years=1,
+                t_mid_years=0.875,
+            )
+        )
+        session.commit()
+
+    long_df = pd.DataFrame([
+        {
+            "scenario_id": i,
+            "tenor_label": "1y",
+            "tenor_years": 1,
+            "t_mid_years": 0.875,
+            "rate_pct": 13.5 + i,
+            "discount_factor": 0.9,
+            "method": "moex",
+            "is_interpolated": 0,
+            "is_extrapolated": 0,
+        }
+        for i in range(7)
+    ])
+
+    inserted = repository.save_curve_points(
+        run_id,
+        requested_date,
+        long_df,
+    )
+
+    assert inserted == 7
+
+    with Session(repository.engine) as session:
+        rows = session.query(CurvePoint).all()
+
+        assert len(rows) == 7
+        assert all(row.run_id == run_id for row in rows)
+        assert len({row.calculated_at for row in rows}) == 1
+
+    second_insert = repository.save_curve_points(
+        run_id,
+        requested_date,
+        long_df,
+    )
+
+    assert second_insert == 0

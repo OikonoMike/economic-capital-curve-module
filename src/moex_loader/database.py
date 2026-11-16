@@ -8,6 +8,7 @@ from typing import Any
 from dotenv import load_dotenv
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -109,6 +110,86 @@ class CalendarDay(Base):
     is_working_day: Mapped[bool] = mapped_column(nullable=False)
     is_trading_day: Mapped[bool] = mapped_column(nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+class Scenario(Base):
+    """Справочник сценариев"""
+
+    __tablename__ = "scenario"
+
+    scenario_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True
+    )
+    code: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    name_ru: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class TenorGrid(Base):
+    """Справочник тенор-бакетов"""
+
+    __tablename__ = "tenor_grid"
+
+    tenor_label: Mapped[str] = mapped_column(Text, primary_key=True)
+    order_no: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    interval_name: Mapped[str] = mapped_column(Text, nullable=False)
+    tenor_years: Mapped[Decimal] = mapped_column(
+        Numeric(8, 4), nullable=False
+    )
+    t_mid_years: Mapped[Decimal] = mapped_column(
+        Numeric(8, 4), nullable=False
+    )
+
+
+class CurvePoint(Base):
+    """Рассчитанные точки кривой по сценариям"""
+
+    __tablename__ = "curve_point"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "scenario_id",
+            "tenor_label",
+            name="uq_curve_point_run_scenario_tenor",
+        ),
+    )
+
+    point_id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    run_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("curve_run.run_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    report_date: Mapped[date] = mapped_column(Date, nullable=False)
+    scenario_id: Mapped[int] = mapped_column(
+        ForeignKey("scenario.scenario_id"), nullable=False
+    )
+    tenor_label: Mapped[str] = mapped_column(
+        ForeignKey("tenor_grid.tenor_label"), nullable=False
+    )
+    tenor_years: Mapped[Decimal] = mapped_column(
+        Numeric(8, 4), nullable=False
+    )
+    t_mid_years: Mapped[Decimal] = mapped_column(
+        Numeric(8, 4), nullable=False
+    )
+    rate_pct: Mapped[Decimal] = mapped_column(
+        Numeric(10, 6), nullable=False
+    )
+    discount_factor: Mapped[Decimal] = mapped_column(
+        Numeric(18, 12), nullable=False
+    )
+    method: Mapped[str] = mapped_column(Text, nullable=False)
+    is_interpolated: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    is_extrapolated: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    calculated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
 
 def create_db_engine() -> Engine:
@@ -299,6 +380,82 @@ class CurveRepository:
                     )
                 )
                 inserted_count += 1
+
+            session.commit()
+
+        return inserted_count
+    def get_moex_points(self, run_id: int) -> list[tuple[float, float]]:
+        """Возвращает исходные точки MOEX только для указанного запуска."""
+        with Session(self.engine) as session:
+            statement = (
+                select(MoexRaw.tenor_years, MoexRaw.rate_pct)
+                .where(MoexRaw.run_id == run_id)
+                .order_by(MoexRaw.tenor_years)
+            )
+            rows = session.execute(statement).all()
+
+        return [
+            (float(tenor), float(rate))
+            for tenor, rate in rows
+        ]
+
+    def save_curve_points(
+        self,
+        run_id: int,
+        requested_date: date,
+        long_df: Any,
+    ) -> int:
+        """Сохраняет рассчитанные точки кривой для конкретного запуска."""
+        calculated_at = datetime.now(timezone.utc)
+        inserted_count = 0
+
+        with Session(self.engine) as session:
+            run = session.get(CurveRun, run_id)
+
+            if run is None:
+                raise ValueError(f"Запуск run_id={run_id} не найден.")
+
+            if run.report_date != requested_date:
+                raise ValueError("Дата не совпадает с датой запуска.")
+
+            for _, row in long_df.iterrows():
+                scenario_id = int(row["scenario_id"])
+                tenor_label = str(row["tenor_label"])
+
+                existing = session.scalar(
+                    select(CurvePoint)
+                    .where(CurvePoint.run_id == run_id)
+                    .where(CurvePoint.scenario_id == scenario_id)
+                    .where(CurvePoint.tenor_label == tenor_label)
+                )
+
+                values = {
+                    "report_date": requested_date,
+                    "tenor_years": Decimal(str(row["tenor_years"])),
+                    "t_mid_years": Decimal(str(row["t_mid_years"])),
+                    "rate_pct": Decimal(str(row["rate_pct"])),
+                    "discount_factor": Decimal(
+                        str(row["discount_factor"])
+                    ),
+                    "method": str(row["method"]),
+                    "is_interpolated": bool(row["is_interpolated"]),
+                    "is_extrapolated": bool(row["is_extrapolated"]),
+                    "calculated_at": calculated_at,
+                }
+
+                if existing is not None:
+                    for key, value in values.items():
+                        setattr(existing, key, value)
+                else:
+                    session.add(
+                        CurvePoint(
+                            run_id=run_id,
+                            scenario_id=scenario_id,
+                            tenor_label=tenor_label,
+                            **values,
+                        )
+                    )
+                    inserted_count += 1
 
             session.commit()
 
