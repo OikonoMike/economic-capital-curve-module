@@ -2,8 +2,9 @@
 
 import argparse
 import logging
-from datetime import date
-
+import time
+from datetime import date, timedelta
+from src.pipeline.runner import run_for_date
 from src.moex_loader.database import CurveRepository, create_db_engine
 from src.moex_loader.loader import CurveLoader
 from src.moex_loader.moex_client import MoexClient
@@ -109,22 +110,45 @@ def main() -> int:
         )
 
         if args.date is not None:
-            status = loader.load_date(args.date, mode=args.mode)
+            status = run_for_date(
+                requested_date=args.date,
+                mode=args.mode,
+                loader=loader,
+                repository=repository,
+            )
             print(f"{args.date}: {status}")
             return 1 if status == "error" else 0
 
-        results = loader.load_range(
-            from_date=args.from_date,
-            to_date=args.to_date,
-            mode=args.mode,
-        )
+        results = {
+            "success": 0,
+            "no_data": 0,
+            "error": 0,
+            "skipped": 0,
+        }
 
-        print("Результаты загрузки:")
+        current_date = args.from_date
+
+        while current_date <= args.to_date:
+            status = run_for_date(
+                requested_date=current_date,
+                mode=args.mode,
+                loader=loader,
+                repository=repository,
+            )
+            results[status] += 1
+
+            print(f"{current_date}: {status}")
+
+            if current_date < args.to_date and args.request_pause > 0:
+                time.sleep(args.request_pause)
+
+            current_date += timedelta(days=1)
+
+        print("Результаты pipeline:")
         for status, count in results.items():
             print(f"  {status}: {count}")
 
         return 1 if results["error"] else 0
-
     except Exception:
         logging.exception("Не удалось запустить загрузчик.")
         return 1
