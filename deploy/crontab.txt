@@ -1,2 +1,2 @@
 CRON_TZ=UTC
-30 16 * * 1-5 /home/ubuntu/economic-capital-curve-module/deploy/run_pipeline.sh >> /home/ubuntu/pipeline.log 2>&1
+30 16 * * 1-5 /home/newera/economic-capital-curve-module/deploy/run_pipeline.sh >> /home/newera/pipeline.log 2>&1

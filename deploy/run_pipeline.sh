@@ -2,7 +2,7 @@
 
 set -e
 
-cd /home/ubuntu/economic-capital-curve-module
+cd /home/newera/economic-capital-curve-module
 
 source .venv/bin/activate
 

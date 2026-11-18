@@ -1,4 +1,4 @@
-# docker-compose
+version: '3.8'
 
 services:
   postgres:
@@ -21,6 +21,35 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: src/curves_api/Dockerfile
+    container_name: irrbb_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-irrbb}
+      DB_USER: calc_ro
+      DB_PASSWORD: ${CALC_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: irrbb_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
 
 volumes:
   pgdata:
