@@ -180,7 +180,7 @@ async function loadRuns() {
                 <td>${row.report_date}</td>
                 <td>${row.run_type}</td>
                 <td>${row.status}</td>
-                <td>${row.started_at}</td>
+                <td>${new Date(row.started_at).toLocaleString('ru-RU')}</td>
                 <td>${row.error_message || "—"}</td>
             `;
             historyBody.appendChild(tr);
