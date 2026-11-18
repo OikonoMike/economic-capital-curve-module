@@ -1,0 +1,60 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background: #f5f5f5;
+}
+h1, h2 {
+    color: #333;
+}
+.controls {
+    margin-bottom: 15px;
+}
+button {
+    padding: 8px 16px;
+    margin-left: 8px;
+    cursor: pointer;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+button:hover {
+    background: #0056b3;
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 20px;
+    background: white;
+}
+th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+    font-size: 14px;
+}
+th {
+    background: #e9ecef;
+}
+.downloads {
+    margin-bottom: 20px;
+}
+.message {
+    margin: 10px 0;
+    padding: 10px;
+    display: none;
+}
+.message.error {
+    display: block;
+    background: #f8d7da;
+    color: #721c24;
+}
+.message.info {
+    display: block;
+    background: #d1ecf1;
+    color: #0c5460;
+}
+canvas {
+    background: white;
+    border: 1px solid #ccc;
+}
