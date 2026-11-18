@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Кривые — простой сайт</title>
+    <title>Кривые</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -14,6 +14,11 @@
         <label for="dateInput">Выберите дату:</label>
         <input type="date" id="dateInput">
         <button id="loadBtn">Получить данные</button>
+
+        <label for="scenarioSelect" style="margin-left: 16px;">Сценарий:</label>
+        <select id="scenarioSelect">
+            <option value="all">Все сценарии</option>
+        </select>
     </div>
 
     <div id="message" class="message"></div>
@@ -23,15 +28,15 @@
         <thead>
             <tr>
                 <th>Сценарий</th>
-            	<th>Тенор</th>
-            	<th>Срок (лет)</th>
-            	<th>Ставка, %</th>
-            	<th>DF</th>
-            	<th>Метод</th>
-            	<th>Интерп.</th>
-            	<th>Экстрап.</th>
-            	<th>Время расчёта</th>
-            	<th>Тип запуска</th>
+                <th>Тенор</th>
+                <th>Срок (лет)</th>
+                <th>Ставка, %</th>
+                <th>DF</th>
+                <th>Метод</th>
+                <th>Интерп.</th>
+                <th>Экстрап.</th>
+                <th>Время расчёта</th>
+                <th>Тип запуска</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -50,6 +55,7 @@
                 <th>Тип</th>
                 <th>Статус</th>
                 <th>Время</th>
+                <th>Ошибка</th>
             </tr>
         </thead>
         <tbody></tbody>
