@@ -31,6 +31,11 @@ def parse_report_date(date_str: str) -> date:
             detail="Некорректная дата",
         )
 
+def get_report_date(
+    date_str: str = Query(..., alias="date"),
+) -> date:
+    return parse_report_date(date_str)
+
 
 # Общий запрос к базе
 def fetch_curves(
@@ -74,18 +79,16 @@ def fetch_curves(
 
 @router.get("/curves", response_model=list[CurveRow])
 def get_curves(
-    date_str: str = Query(..., alias="date"),
+    report_date: date = Depends(get_report_date),
     scenario: int | None = Query(None, ge=0, le=6),
     db: Connection = Depends(get_db),
 ):
-    report_date = parse_report_date(date_str)
-
     rows = fetch_curves(db, report_date, scenario)
 
     if not rows:
         raise HTTPException(
             status_code=404,
-            detail=f"Кривые за дату {date_str} не найдены",
+            detail=f"Кривые за дату {report_date.isoformat()} не найдены",
         )
 
     return rows
@@ -93,7 +96,7 @@ def get_curves(
 
 @router.get("/curves/export")
 def export_curves(
-    date_str: str = Query(..., alias="date"),
+    report_date: date = Depends(get_report_date),
     export_format: str = Query(..., alias="format", pattern="^(csv|xlsx)$"),
     scenario: int | None = Query(None, ge=0, le=6),
     db: Connection = Depends(get_db),
@@ -105,11 +108,11 @@ def export_curves(
     if not rows:
         raise HTTPException(
             status_code=404,
-            detail=f"Кривые за дату {date_str} не найдены",
+            detail=f"Кривые за дату {report_date.isoformat()} не найдены",
         )
 
     columns = list(rows[0].keys())
-    filename = f"curves_{date_str}"
+    filename = f"curves_{report_date.isoformat()}"
 
     if export_format == "csv":
         output = StringIO()
