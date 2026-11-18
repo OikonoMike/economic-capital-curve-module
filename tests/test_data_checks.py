@@ -35,6 +35,12 @@ class TestCheckRates:
         status, _ = check_rates(points)
         assert status == 'error'
 
+    def test_non_numeric_rate(self):
+        points = [(1.0, 14.5), (5.0, None)]
+        status, details = check_rates(points)
+        assert status == 'error'
+        assert 'None' in details
+
 
 class TestCheckTradetime:
     def test_valid(self):

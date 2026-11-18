@@ -102,10 +102,21 @@ class CurveLoader:
         try:
             points = self._fetch_with_retries(requested_date)
 
-            # Извлекаем данные для проверок
-            tenors_and_rates = [
-                (float(p["period"]), float(p["value"])) for p in points
-            ]
+            # Безопасное извлечение данных (защита от нечисловых значений)
+            tenors_and_rates = []
+            for p in points:
+                try:
+                    t = float(p["period"])
+                except (ValueError, TypeError, KeyError):
+                    t = -1.0  # Некорректный тенор, проверка tenors это поймает
+                
+                try:
+                    r = float(p["value"])
+                except (ValueError, TypeError, KeyError):
+                    r = None  # Некорректная ставка, проверка rates это поймает
+                
+                tenors_and_rates.append((t, r))
+
             moex_tradetime = self._extract_tradetime(points)
             actual_date = self._extract_actual_date(points)
 

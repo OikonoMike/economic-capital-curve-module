@@ -18,11 +18,11 @@ def check_tenors(points: List[Tuple[float, float]]) -> Tuple[str, Optional[str]]
     return 'ok', f"Получено {len(points)} из 11 сроков"
 
 
-def check_rates(points: List[Tuple[float, float]]) -> Tuple[str, Optional[str]]:
-    """2. Все ставки — числа в диапазоне 0–50 %."""
-    invalid = [(t, r) for t, r in points if r < 0 or r > 50]
+def check_rates(points: List[Tuple[float, Optional[float]]]) -> Tuple[str, Optional[str]]:
+    """2. Все ставки — числа в диапазоне 0–50 %. None считается ошибкой."""
+    invalid = [(t, r) for t, r in points if r is None or r < 0 or r > 50]
     if invalid:
-        return 'error', f"Ставки вне диапазона 0-50%: {invalid}"
+        return 'error', f"Некорректные ставки (None или вне 0-50%): {invalid}"
     return 'ok', f"Все {len(points)} ставок в диапазоне 0-50%"
 
 
