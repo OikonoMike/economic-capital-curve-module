@@ -101,8 +101,6 @@ def export_curves(
     scenario: int | None = Query(None, ge=0, le=6),
     db: Connection = Depends(get_db),
 ):
-    report_date = parse_report_date(date_str)
-
     rows = fetch_curves(db, report_date, scenario)
 
     if not rows:
