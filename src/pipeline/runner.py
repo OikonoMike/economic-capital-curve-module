@@ -30,6 +30,13 @@ def run_for_date(
             "Необходимо передать loader и repository."
         )
 
+    with repository.lock_pipeline_date(requested_date):
+        return _run_for_date(requested_date, mode, loader, repository)
+
+
+def _run_for_date(
+    requested_date: date, mode: str, loader: CurveLoader, repository: CurveRepository
+) -> str:
     # Проверяем календарь до создания запуска.
     if not repository.is_trading_day(requested_date):
         repository.create_run(

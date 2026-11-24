@@ -1,6 +1,7 @@
 """Подключение к общей PostgreSQL БД и работа с данными MOEX"""
 
 import os
+from contextlib import contextmanager
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from typing import Any
@@ -19,6 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     select,
+    text,
     Integer,
 )
 from sqlalchemy.engine import Engine
@@ -222,6 +224,20 @@ class CurveRepository:
 
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
+
+    @contextmanager
+    def lock_pipeline_date(self, requested_date: date):
+        """Serialize cron and HTTP loads for the same date in PostgreSQL."""
+        if self.engine.dialect.name == "postgresql":
+            with self.engine.begin() as connection:
+                connection.execute(text("SET LOCAL lock_timeout = '5s'"))
+                connection.execute(
+                    text("SELECT pg_advisory_xact_lock(1116478338, :day)"),
+                    {"day": requested_date.toordinal()},
+                )
+                yield
+        else:
+            yield
 
     def is_trading_day(self, requested_date: date) -> bool:
         """Проверяет торговый календарь; при отсутствии даты сообщает об ошибке."""

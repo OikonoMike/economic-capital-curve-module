@@ -34,6 +34,7 @@ services:
       API_DB_NAME: ${POSTGRES_DB:-irrbb}
       API_DB_USER: calc_ro
       API_DB_PASSWORD: ${CALC_PASSWORD}
+      CURVES_INGEST_DATABASE_URL: ${CURVES_INGEST_DATABASE_URL:-}
     depends_on:
       postgres:
         condition: service_healthy

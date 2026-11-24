@@ -7,6 +7,24 @@ S_K_S = 5.0
 S_D_S = 3.0
 T_SWITCH = 4.0
 
+SCENARIO_CODES = (
+    "parallel_up", "parallel_down", "steepener", "flattener", "short_up", "short_down",
+)
+
+
+def stress_rates(base_pct: float, years: float) -> tuple[float, ...]:
+    """Стрессовые ставки в процентах, в порядке сценариев 1–6."""
+    decay = np.exp(-years / T_SWITCH)
+    return (
+        base_pct + D_PAR,
+        base_pct - D_PAR,
+        base_pct - 0.65 * S_K_S * decay + 0.9 * S_D_S * (1 - decay),
+        base_pct + 0.8 * S_K_S * decay - 0.6 * S_D_S * (1 - decay),
+        base_pct + S_K_S * decay,
+        base_pct - S_K_S * decay,
+    )
+
+
 GRID = [
     ('1d', 0.0027, 0.0028), ('1m', 0.0833, 0.0417), ('3m', 0.25, 0.1667), ('6m', 0.5, 0.375),
     ('9m', 0.75, 0.625), ('1y', 1, 0.875), ('1.5y', 1.5, 1.25), ('2y', 2, 1.75),
@@ -34,14 +52,7 @@ def calculate_curves(moex_points: list) -> pd.DataFrame:
     result_rows = []
     for label, tenor, t_mid in GRID:
         base, method = get_base_rate(tenor, x_moex, y_moex)
-        exp_term = np.exp(-t_mid / T_SWITCH)
-        
-        s1 = base + D_PAR
-        s2 = base - D_PAR
-        s3 = base - 0.65 * S_K_S * exp_term + 0.9 * S_D_S * (1 - exp_term)
-        s4 = base + 0.8 * S_K_S * exp_term - 0.6 * S_D_S * (1 - exp_term)
-        s5 = base + S_K_S * exp_term
-        s6 = base - S_K_S * exp_term
+        s1, s2, s3, s4, s5, s6 = stress_rates(base, t_mid)
         
         def calc_df(rate_pct):
             r = rate_pct / 100.0

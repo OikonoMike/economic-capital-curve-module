@@ -1,4 +1,5 @@
 from datetime import date
+from contextlib import nullcontext
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -10,6 +11,7 @@ from src.pipeline.runner import run_for_date
 @pytest.fixture
 def repository():
     repo = Mock()
+    repo.lock_pipeline_date.side_effect = lambda _: nullcontext()
     repo.is_trading_day.return_value = True
     repo.has_successful_run.return_value = False
     repo.create_run.return_value = 123

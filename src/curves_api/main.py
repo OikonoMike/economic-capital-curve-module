@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.curves_api.routers.curve_parser import router as curve_parser_router
 from src.curves_api.routers.curves import router as curves_router
 from src.curves_api.routers.runs import router as runs_router
 
@@ -21,3 +22,4 @@ app.add_middleware(
 
 app.include_router(curves_router)
 app.include_router(runs_router)
+app.include_router(curve_parser_router)
